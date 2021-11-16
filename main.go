@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -47,7 +48,23 @@ func main() {
 			return
 		}
 
-		_, err = s.ChannelMessageSend(m.ChannelID, VikingifyString(m.Content))
+		newMessage := discordgo.MessageSend{
+			Content: VikingifyString(m.Content),
+		}
+
+		for _, a := range m.Attachments {
+			reader, err := http.Get(a.URL)
+			if err != nil {
+				continue
+			}
+
+			newMessage.Files = append(newMessage.Files, &discordgo.File{
+				Name:   a.Filename,
+				Reader: reader.Body,
+			})
+		}
+
+		_, err = s.ChannelMessageSendComplex(m.ChannelID, &newMessage)
 		if err != nil {
 			log.Println(err)
 			return
