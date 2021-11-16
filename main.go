@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
+	"regexp"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -19,9 +20,49 @@ func CheckErr(err error) {
 	}
 }
 
+func replaceChar(str string, c byte, idx int) string {
+	postfix := ""
+
+	if idx < len(str) {
+		postfix = str[idx+1:]
+	}
+
+	return fmt.Sprintf("%s%c%s", str[:idx], c, postfix)
+}
+
 func VikingifyString(s string) string {
-	// ø i zamiast a jest å
-	return strings.ReplaceAll(strings.ReplaceAll(s, "a", "å"), "o", "ø")
+	replaceMap := map[byte]byte{
+		'a': 'å',
+		'o': 'ø',
+		'A': 'Å',
+		'O': 'Ø',
+	}
+
+	regex := regexp.MustCompile(`((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)`)
+
+	urlBoundaries := regex.FindAllStringIndex(s, -1)
+
+	for i := 0; i < len(s); i++ {
+		if !func() bool {
+			for _, rng := range urlBoundaries {
+				if i >= rng[0] && i < rng[1] {
+					return false
+				}
+			}
+			return true
+		}() {
+			continue
+		}
+
+		for k, v := range replaceMap {
+			if s[i] == k {
+				s = replaceChar(s, v, i)
+				continue
+			}
+		}
+	}
+
+	return s
 }
 
 func AwaitOSInterrupt() {
@@ -53,14 +94,14 @@ func main() {
 		}
 
 		for _, a := range m.Attachments {
-			reader, err := http.Get(a.URL)
+			resp, err := http.Get(a.URL)
 			if err != nil {
 				continue
 			}
 
 			newMessage.Files = append(newMessage.Files, &discordgo.File{
 				Name:   a.Filename,
-				Reader: reader.Body,
+				Reader: resp.Body,
 			})
 		}
 
