@@ -90,7 +90,8 @@ func main() {
 		}
 
 		newMessage := discordgo.MessageSend{
-			Content: VikingifyString(m.Content),
+			Content:   VikingifyString(m.Content),
+			Reference: m.MessageReference,
 		}
 
 		for _, a := range m.Attachments {
