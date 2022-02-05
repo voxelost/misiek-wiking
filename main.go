@@ -39,7 +39,6 @@ func VikingifyString(s string) string {
 	}
 
 	regex := regexp.MustCompile(`(<:.+:\d{18}>)|((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)`)
-
 	urlBoundaries := regex.FindAllStringIndex(s, -1)
 
 	for i := 0; i < len(s); i++ {
@@ -75,17 +74,24 @@ func main() {
 	fstream, err := ioutil.ReadFile("config.json")
 	CheckErr(err)
 
-	config := make(map[string]string)
+	config := make(map[string][]string)
 	err = json.Unmarshal(fstream, &config)
 	CheckErr(err)
 
-	dg, err := discordgo.New("Bot " + config["token"])
+	dg, err := discordgo.New("Bot " + os.Getenv("DISCORD_TOKEN"))
 	CheckErr(err)
 
 	defer dg.Close()
 
 	dg.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.Author.ID != config["misiek_id_1"] && m.Author.ID != config["misiek_id_2"] {
+		if !func() bool {
+			for _, us := range config["known_ids"] {
+				if m.Author.ID == us {
+					return true
+				}
+			}
+			return false
+		}() {
 			return
 		}
 
